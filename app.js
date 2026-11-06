@@ -47,6 +47,16 @@ const current=c=>c.steps.find(s=>s.status==="andamento")||c.steps.find(s=>s.stat
 const after=(c,cur)=>cur?c.steps.slice(c.steps.indexOf(cur)+1).find(s=>s.status!=="concluida")||null:null;
 const span=c=>{if(!c.steps.length)return null;let a=c.steps[0].inicio,b=c.steps[0].fim;c.steps.forEach(s=>{if(s.inicio<a)a=s.inicio;if(s.fim>b)b=s.fim});return{a:parse(a),b:parse(b)}};
 const TAG={concluida:"Concluída",andamento:"Em andamento",afazer:"A fazer"};
+function ago(d){const m=Math.round((Date.now()-d.getTime())/60000);if(m<1)return"agora há pouco";if(m<60)return"há "+m+" min";const h=Math.round(m/60);if(h<24)return"há "+h+(h===1?" hora":" horas");const dd=Math.round(h/24);if(dd===1)return"ontem";if(dd<7)return"há "+dd+" dias";return"em "+d.getDate()+" "+MES[d.getMonth()]}
+function icsFor(c,s){
+  const d=s.fim.replace(/-/g,""),n=iso(add(parse(s.fim),1)).replace(/-/g,""),stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z";
+  const esc2=t=>String(t).replace(/[,;\\]/g,m=>"\\"+m).replace(/\n/g,"\\n");
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Edson Mota//Plataforma//PT","BEGIN:VEVENT","UID:"+(s.id||d)+"@plataforma.edsonmota.com","DTSTAMP:"+stamp,
+    "DTSTART;VALUE=DATE:"+d,"DTEND;VALUE=DATE:"+n,"SUMMARY:"+esc2("Entrega: "+s.entregavel+" ("+c.marca+")"),
+    "DESCRIPTION:"+esc2((s.acao?"Sua parte: "+s.acao+"\n":"")+"Acompanhe em "+CFG.siteUrl),"URL:"+CFG.siteUrl,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));a.download="entrega-"+s.nome.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-")+".ics";
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);toast("Abra o arquivo para salvar no seu calendário");
+}
 const genPass=()=>{const c="abcdefghjkmnpqrstuvwxyz23456789";let s="";const r=crypto.getRandomValues(new Uint32Array(10));r.forEach(n=>s+=c[n%c.length]);return s};
 
 /* ---------- avisos e modal ---------- */
@@ -130,13 +140,15 @@ function renderLogin(){
         <h2>Entrar no portal</h2>
         <p class="sub">Use o e-mail e a senha que você recebeu.</p>
         <div class="field"><label for="le">E-mail</label><input id="le" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="voce@suamarca.com"></div>
-        <div class="field"><label for="lp">Senha</label><input id="lp" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="lp">Senha</label><div class="pw"><input id="lp" type="password" autocomplete="current-password"><button type="button" id="lpt" aria-label="Mostrar senha">Mostrar</button></div><span class="caps" id="caps" aria-live="polite"></span></div>
         <div class="err" id="lerr" role="alert"></div>
         <button class="btn ink" type="submit" id="lbtn" style="padding:14px">Entrar</button>
         <p class="sub" style="margin-top:4px">Esqueceu a senha? Fale com o Edson que ele gera uma nova para você.</p>
       </form>
     </div>
   </div>`;
+  $("lpt").onclick=()=>{const i=$("lp"),show=i.type==="password";i.type=show?"text":"password";$("lpt").textContent=show?"Ocultar":"Mostrar";$("lpt").setAttribute("aria-label",show?"Ocultar senha":"Mostrar senha");i.focus()};
+  $("lp").addEventListener("keyup",e=>{if(e.getModifierState)$("caps").textContent=e.getModifierState("CapsLock")?"Caps Lock ligado":""});
   $("lf").addEventListener("submit",async ev=>{ev.preventDefault();
     const email=$("le").value.trim().toLowerCase(),password=$("lp").value;
     if(!email||!password){$("lerr").textContent="Preencha o e-mail e a senha.";return}
@@ -202,11 +214,12 @@ function renderPortal(c){
   </div></div>
 
   <div class="wrap">
-    <div class="tabs-wrap"><nav class="tabs" aria-label="Seções do portal">
+    <div class="tabs-wrap" id="tw"><nav class="tabs" aria-label="Seções do portal">
       <button type="button" data-go="etapas" aria-current="true">Etapas</button>
       <button type="button" data-go="cronograma">Cronograma</button>
       <button type="button" data-go="arquivos">Arquivos</button>
-    </nav></div>
+    </nav>
+    <div class="mini" aria-hidden="true"><b>${esc(c.titulo)}</b><span class="mbar"><i style="width:${pct}%"></i></span><span class="mp">${pct}%</span></div></div>
 
     <section class="block" id="etapas" aria-labelledby="h1e" style="padding-top:20px">
       <div class="sec-head"><div><h2 id="h1e">Etapas do projeto</h2><p>O caminho completo do que a gente fechou. Cada entrega libera aqui assim que a etapa termina.</p></div>
@@ -226,7 +239,7 @@ function renderPortal(c){
     </section>
 
     <div class="contact"><div><h3>Ficou alguma dúvida sobre o projeto?</h3><p>Me chama direto. Respondo em até um dia útil.</p></div>${c.whats?`<a class="btn orange" href="https://wa.me/${esc(c.whats.replace(/\D/g,""))}" target="_blank" rel="noopener">Falar com o Edson</a>`:""}</div>
-    <footer><span>© Edson Mota, estratégia de marca e direção criativa</span><span class="num">Atualizado em ${upd.getDate()} ${MES[upd.getMonth()]}</span></footer>
+    <footer><span>© Edson Mota, estratégia de marca e direção criativa</span><span class="num">Atualizado ${ago(upd)}</span></footer>
   </div>`;
 
   const pn=$("pctn");
@@ -238,8 +251,10 @@ function renderPortal(c){
   if($("back"))$("back").onclick=()=>{asAdmin=false;view="admin";render();window.scrollTo(0,0)};
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>$(b.dataset.go).scrollIntoView({behavior:reduce?"auto":"smooth"}));
   bindCal(c);
+  app.querySelectorAll("[data-ics]").forEach(b=>b.onclick=()=>icsFor(c,c.steps[+b.dataset.ics]));
   const ids=["etapas","cronograma","arquivos"];
-  window.onscroll=()=>{let act="etapas";ids.forEach(id=>{const el=$(id);if(el&&el.getBoundingClientRect().top<140)act=id});
+  const tw=$("tw"),heroEnd=()=>app.querySelector(".top-dark").getBoundingClientRect().bottom;
+  window.onscroll=()=>{tw.classList.toggle("stuck",heroEnd()<0);let act="etapas";ids.forEach(id=>{const el=$(id);if(el&&el.getBoundingClientRect().top<140)act=id});
     app.querySelectorAll("[data-go]").forEach(b=>b.setAttribute("aria-current",b.dataset.go===act))};
 }
 function bindCal(c){
@@ -263,14 +278,15 @@ function railHTML(c,fases){
         out+=`<div class="rs andamento${pos}"><div class="node"><i></i></div><div class="rs-body">
           <article class="current">
             <div>
-              <div class="top"><span class="n num">Etapa ${n}</span><span class="tag andamento">Em andamento</span></div>
+              <div class="top"><span class="n num">Etapa ${n}</span><span class="tag andamento">Em andamento</span><span class="of num">${i+1} de ${N}</span></div>
               <h3>${esc(s.nome)}</h3>
               <p class="d">${esc(s.desc)}</p>
               <div class="prog"><div class="prog-head num"><span>${fmt(s.inicio)}</span><b>${p}% desta etapa</b><span>${fmt(s.fim)}</span></div><div class="track"><i data-w="${p}"></i></div></div>
             </div>
             <div class="side">
               <div class="box"><small>Entrega desta etapa</small><b>${esc(s.entregavel)}</b>
-                <div class="count num"><strong>${left}</strong><span>${left===1?"dia":"dias"} para ${fmt(s.fim)}</span></div></div>
+                <div class="count num"><strong>${left}</strong><span>${left===1?"dia":"dias"} para ${fmt(s.fim)}</span></div>
+                <button class="cal-add" type="button" data-ics="${i}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Adicionar ao calendário</button></div>
               ${s.acao?`<div class="box you"><small>Sua parte nesta etapa</small><b>${esc(s.acao)}</b></div>`:""}
             </div>
           </article></div></div>`;
@@ -290,7 +306,7 @@ function railHTML(c,fases){
 function fileHTML(s){
   const ok=okLink(s);
   const ic=ok?`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FEF7EA" stroke-width="1.8"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M8.5 13h7M8.5 16.5h5"/></svg>`
-    :`<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7A7166" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
+    :`<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6B6B69" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
   return `<div class="file${ok?"":" locked"}"><div class="ic">${ic}</div>
     <div><h4>${esc(s.entregavel)}</h4><p class="num">${esc(s.nome)}, ${ok?"entregue em "+fmt(s.fim):(s.status==="concluida"?"concluída em "+fmt(s.fim):"previsto para "+fmt(s.fim))}</p></div>
     ${ok?fileLink(s,"sm","Abrir arquivo"):`<span class="lock num">${s.status==="concluida"?"Arquivo a caminho":"Libera em "+fmt(s.fim)}</span>`}</div>`;
@@ -322,7 +338,7 @@ function month(c){
 }
 
 /* ======== PAINEL ======== */
-function ring(p){const r=16,L=2*Math.PI*r;return `<svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="${r}" fill="none" stroke="#EFE4CF" stroke-width="4"/><circle cx="20" cy="20" r="${r}" fill="none" stroke="#F43217" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(L*p/100).toFixed(1)} ${L.toFixed(1)}" transform="rotate(-90 20 20)"/><text x="20" y="24" text-anchor="middle" font-size="10" font-weight="700" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">${p}</text></svg>`}
+function ring(p){const r=16,L=2*Math.PI*r;return `<svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="${r}" fill="none" stroke="#E9E9E7" stroke-width="4"/><circle cx="20" cy="20" r="${r}" fill="none" stroke="#F43217" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(L*p/100).toFixed(1)} ${L.toFixed(1)}" transform="rotate(-90 20 20)"/><text x="20" y="24" text-anchor="middle" font-size="10" font-weight="700" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">${p}</text></svg>`}
 function renderAdmin(){
   window.onscroll=null;
   const c=projects.find(x=>x.id===sel);
@@ -381,7 +397,7 @@ function editor(c){
 }
 /* salvar com espera curta para não gravar a cada tecla */
 const pending=new Map();let sT;
-function flash(state){const s=$("saved");if(!s)return;s.textContent=state==="saving"?"Salvando...":(state==="err"?"Erro ao salvar":"Alterações salvas")}
+function flash(state){const s=$("saved");if(!s)return;s.className="saved"+(state==="saving"?" saving":state==="err"?" err":"");s.textContent=state==="saving"?"Salvando...":(state==="err"?"Erro ao salvar":"Alterações salvas")}
 function queueSave(table,id,col,val){
   const k=table+id+col;clearTimeout(pending.get(k));flash("saving");
   pending.set(k,setTimeout(async()=>{pending.delete(k);
@@ -397,7 +413,10 @@ function bindEditor(c){
     if(el.dataset.k==="marca"){const h=app.querySelector(".ed-head h2");if(h)h.textContent=el.value}});
   app.querySelectorAll("[data-s]").forEach(el=>{
     const h=()=>{const s=c.steps[+el.dataset.i];s[el.dataset.s]=el.value;
-      if(el.type==="date"){if(!el.value)return;saveNow("steps",s.id,{[SCOL[el.dataset.s]]:el.value}).then(()=>renderAdmin());return}
+      if(el.type==="date"){if(!el.value)return;const idx=+el.dataset.i,col=el.dataset.s;
+        const before=el.defaultValue;saveNow("steps",s.id,{[SCOL[col]]:el.value}).then(ok=>{if(!ok)return;renderAdmin();
+          const delta=before?diff(parse(before),parse(el.value)):0,rest=c.steps.slice(idx+1);
+          if(col==="fim"&&delta&&rest.length)askShift(c,idx,delta)});return}
       queueSave("steps",s.id,SCOL[el.dataset.s],el.value)};
     if(el.type==="date"||el.tagName==="SELECT")el.onchange=h;else el.oninput=h;});
   app.querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{const[i,o]=b.dataset.st.split("|");const s=c.steps[+i];const old=s.status;s.status=o;renderAdmin();
@@ -427,6 +446,15 @@ function bindEditor(c){
     if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Clique de novo para excluir de vez (o login do cliente também é apagado)";return}
     const r=await callAdmin({action:"remove",project_id:c.id});if(!r)return;
     projects=projects.filter(p=>p.id!==c.id);sel=projects[0]?projects[0].id:null;renderAdmin();toast("Cliente excluído")};
+}
+function askShift(c,idx,delta){
+  const n=c.steps.length-idx-1,abs=Math.abs(delta),dias=abs===1?"1 dia":abs+" dias";
+  modal(delta>0?"A entrega atrasou "+dias:"A entrega adiantou "+dias,`<p>Quer mover as ${n} etapas seguintes junto, para o cronograma continuar fazendo sentido para o cliente?</p>
+    <div class="row"><button class="btn" type="button" data-close>Só esta etapa</button><button class="btn ink" type="button" id="shy">Mover as ${n} seguintes</button></div>`,
+  ()=>{$("shy").onclick=async()=>{$("shy").disabled=true;$("shy").textContent="Movendo...";
+    for(const s of c.steps.slice(idx+1)){const ni=iso(add(parse(s.inicio),delta)),nf=iso(add(parse(s.fim),delta));
+      if(await saveNow("steps",s.id,{start_date:ni,end_date:nf})){s.inicio=ni;s.fim=nf}}
+    closeModal();renderAdmin();toast("Cronograma atualizado")}});
 }
 async function callAdmin(body){
   const {data,error}=await sb.functions.invoke("admin-users",{body});

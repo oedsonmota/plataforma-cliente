@@ -75,7 +75,14 @@ async function boot(){
   if(!session){view="login";return render()}
   await afterLogin();
 }
+let entering=false;
 async function afterLogin(){
+  if(entering)return;entering=true;
+  try{await afterLoginInner()}
+  catch(e){console.error(e);toast("Não deu para carregar seus dados. Recarregue a página.",true)}
+  finally{entering=false}
+}
+async function afterLoginInner(){
   const {data:prof,error}=await sb.from("profiles").select("role").eq("id",session.user.id).single();
   role=prof?prof.role:"client";
   if(error&&error.code!=="PGRST116")console.warn(error);
@@ -89,7 +96,11 @@ async function loadProjects(){
   projects=data.map(projFromDb);
   if(!projects.find(p=>p.id===sel))sel=projects[0]?projects[0].id:null;
 }
-sb.auth.onAuthStateChange((ev,s)=>{session=s;if(ev==="SIGNED_OUT"){view="login";render()}});
+sb.auth.onAuthStateChange((ev,s)=>{session=s;
+  if(ev==="SIGNED_OUT"&&view!=="login"){view="login";render()}
+  /* roda fora do callback do Supabase para não travar a sessão */
+  if(ev==="SIGNED_IN"&&s&&view==="login")setTimeout(afterLogin,0);
+});
 async function logout(){await sb.auth.signOut();session=null;role=null;myProject=null;projects=[];view="login";render();window.scrollTo(0,0)}
 function render(){
   if(view==="login")return renderLogin();
@@ -133,7 +144,7 @@ function renderLogin(){
     const {data,error}=await sb.auth.signInWithPassword({email,password});
     if(error){$("lbtn").disabled=false;$("lbtn").textContent="Entrar";
       $("lerr").textContent=/invalid/i.test(error.message)?"E-mail ou senha não conferem. Use o acesso que veio na mensagem do Edson.":"Não deu para entrar agora: "+error.message;return}
-    session=data.session;await afterLogin();
+    session=data.session;setTimeout(afterLogin,0);
   });
 }
 

@@ -188,7 +188,7 @@ function renderPortal(c){
   <div class="top-dark"><div class="wrap">
     <div class="bar-top">
       <div class="mark"><b>Edson Mota</b><span>Portal do cliente</span></div>
-      <div style="display:flex;gap:8px">${asAdmin?`<button class="btn light sm" id="back" type="button">Voltar ao painel</button>`:`<button class="btn light sm" id="pw" type="button">Trocar senha</button><button class="btn light sm" id="out" type="button">Sair</button>`}</div>
+      <div style="display:flex;gap:8px">${asAdmin?`<button class="btn light sm" id="back" type="button">Voltar ao painel</button>`:`<button class="btn light sm ib" id="pw" type="button" aria-label="Trocar senha"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/></svg><span>Trocar senha</span></button><button class="btn light sm ib" id="out" type="button" aria-label="Sair"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg><span>Sair</span></button>`}</div>
     </div>
     <div class="hero">
       <div>
@@ -230,7 +230,7 @@ function renderPortal(c){
     <section class="block" id="cronograma" aria-labelledby="h2c">
       <div class="sec-head"><div><h2 id="h2c">Cronograma</h2><p>As datas de cada etapa. O losango marca o dia da entrega e a linha laranja marca hoje.</p></div>
         <div class="toggle" role="group" aria-label="Formato do cronograma"><button type="button" data-mode="linha" aria-pressed="${calMode==="linha"}">Linha do tempo</button><button type="button" data-mode="mes" aria-pressed="${calMode==="mes"}">Calendário</button></div></div>
-      <div class="panel" id="cal-panel">${calMode==="linha"?gantt(c):month(c)}</div>
+      <div class="panel" id="cal-panel">${calHTML(c)}</div>
     </section>
 
     <section class="block" id="arquivos" aria-labelledby="h3a">
@@ -251,6 +251,8 @@ function renderPortal(c){
   if($("back"))$("back").onclick=()=>{asAdmin=false;view="admin";render();window.scrollTo(0,0)};
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>$(b.dataset.go).scrollIntoView({behavior:reduce?"auto":"smooth"}));
   bindCal(c);
+  if(window.__mq)window.__mq.onchange=null;
+  window.__mq=window.matchMedia("(max-width:640px)");window.__mq.onchange=()=>{const cp=$("cal-panel");if(cp){cp.innerHTML=calHTML(c);bindCal(c)}};
   app.querySelectorAll("[data-ics]").forEach(b=>b.onclick=()=>icsFor(c,c.steps[+b.dataset.ics]));
   const ids=["etapas","cronograma","arquivos"];
   const tw=$("tw"),heroEnd=()=>app.querySelector(".top-dark").getBoundingClientRect().bottom;
@@ -260,9 +262,9 @@ function renderPortal(c){
 function bindCal(c){
   app.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{calMode=b.dataset.mode;
     app.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-pressed",x===b));
-    $("cal-panel").innerHTML=calMode==="linha"?gantt(c):month(c);bindCal(c)});
+    $("cal-panel").innerHTML=calHTML(c);bindCal(c)});
   app.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>{calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+ +b.dataset.cal,1);
-    $("cal-panel").innerHTML=month(c);bindCal(c)});
+    $("cal-panel").innerHTML=calHTML(c);bindCal(c)});
 }
 const fileLink=(s,cls,label)=>`<a class="btn ${cls}" href="${esc(s.link)}" target="_blank" rel="noopener">${label}</a>`;
 const okLink=s=>s.status==="concluida"&&/^https?:\/\//i.test(s.link||"");
@@ -309,7 +311,34 @@ function fileHTML(s){
     :`<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6B6B69" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
   return `<div class="file${ok?"":" locked"}"><div class="ic">${ic}</div>
     <div><h4>${esc(s.entregavel)}</h4><p class="num">${esc(s.nome)}, ${ok?"entregue em "+fmt(s.fim):(s.status==="concluida"?"concluída em "+fmt(s.fim):"previsto para "+fmt(s.fim))}</p></div>
-    ${ok?fileLink(s,"sm","Abrir arquivo"):`<span class="lock num">${s.status==="concluida"?"Arquivo a caminho":"Libera em "+fmt(s.fim)}</span>`}</div>`;
+    ${ok?fileLink(s,"sm","Abrir<span class=\"hide-m\"> arquivo</span>"):`<span class="lock num">${s.status==="concluida"?"A caminho":"Libera "+fmt(s.fim)}</span>`}</div>`;
+}
+const isMob=()=>window.matchMedia("(max-width:640px)").matches;
+const calHTML=c=>calMode==="linha"?(isMob()?ganttM(c):gantt(c)):(isMob()?monthM(c):month(c));
+function ganttM(c){
+  const sp=span(c);if(!sp)return"<p>Nenhuma etapa cadastrada ainda.</p>";
+  const T=diff(sp.a,sp.b)+1,pos=d=>Math.max(0,Math.min(100,diff(sp.a,d)/T*100)),tp=(diff(sp.a,today)+.5)/T*100,show=tp>=0&&tp<=100;
+  return `<div class="gm">
+    <div class="gm-axis num"><span>${fmt(iso(sp.a))}</span>${show?`<span class="gm-hoje" style="left:${tp}%">Hoje</span>`:""}<span>${fmt(iso(sp.b))}</span></div>
+    ${c.steps.map(s=>{const l=pos(parse(s.inicio)),w=Math.max(2.5,(diff(parse(s.inicio),parse(s.fim))+1)/T*100);
+      return `<div class="gm-row ${s.status}">
+        <div class="gm-head"><b>${esc(s.nome)}</b><span class="num">${fmt(s.inicio)} a ${fmt(s.fim)}</span></div>
+        <div class="gm-track">${show?`<i class="gm-today" style="left:${tp}%"></i>`:""}<i class="gm-bar ${s.status}" style="left:${l}%;width:${w}%">${s.status==="andamento"?`<i style="width:${spct(s)}%"></i>`:""}</i><i class="gm-dia" style="left:${Math.min(100,l+w)}%"></i></div>
+      </div>`}).join("")}
+  </div>`;
+}
+function monthM(c){
+  const y=calMonth.getFullYear(),m=calMonth.getMonth(),gs=monday(new Date(y,m,1)),first=iso(new Date(y,m,1)),last=iso(new Date(y,m+1,0));let cells="";
+  for(let i=0;i<42;i++){const d=add(gs,i);if(i>=35&&d.getMonth()!==m)break;const ds=iso(d);
+    const act=c.steps.filter(s=>s.inicio<=ds&&ds<=s.fim),ent=c.steps.some(s=>s.fim===ds);
+    cells+=`<div class="dm${d.getMonth()!==m?" out":""}${ds===iso(today)?" today":""}${ent?" ent":""}"><span class="num">${d.getDate()}</span><span class="dots">${act.slice(0,3).map(s=>`<i class="${s.status}"></i>`).join("")}</span></div>`}
+  const items=[];
+  c.steps.forEach(s=>{if(s.inicio<=last&&s.fim>=first)items.push({d:s.inicio<first?first:s.inicio,html:`<span class="ag-d num">${fmt(s.inicio)} a ${fmt(s.fim)}</span><b>${esc(s.nome)}</b><span class="tag ${s.status}">${TAG[s.status]}</span>`});
+    if(s.fim>=first&&s.fim<=last)items.push({d:s.fim+"z",html:`<span class="ag-d num">${fmt(s.fim)}</span><b>${esc(s.entregavel)}</b><span class="tag entrega">Entrega</span>`})});
+  items.sort((a,b)=>a.d<b.d?-1:1);
+  return `<div class="cal-head"><h3>${MESF[m]} de ${y}</h3><div class="cal-nav"><button type="button" data-cal="-1" aria-label="Mês anterior">‹</button><button type="button" data-cal="1" aria-label="Próximo mês">›</button></div></div>
+    <div class="calm">${["S","T","Q","Q","S","S","D"].map(w=>`<div class="wd">${w}</div>`).join("")}${cells}</div>
+    <div class="agenda">${items.length?items.map(x=>`<div class="ag">${x.html}</div>`).join(""):`<p class="ag-empty">Nada marcado neste mês.</p>`}</div>`;
 }
 function gantt(c){
   const sp=span(c);if(!sp)return"<p>Nenhuma etapa cadastrada ainda.</p>";

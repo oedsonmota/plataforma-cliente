@@ -17,7 +17,7 @@ const MES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","de
 const MESF=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const fmt=s=>{const d=parse(s);return d.getDate()+" "+MES[d.getMonth()]};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function until(s){const n=diff(today,parse(s));if(n===0)return"hoje";if(n===1)return"amanhã";if(n<0)return"há "+(-n)+" dias";return"em "+n+" dias"}
+function until(s){const n=diff(today,parse(s));if(n===0)return"hoje";if(n===1)return"amanhã";if(n<0)return"nova data em breve";return"em "+n+" dias"}
 const $=id=>document.getElementById(id);
 
 /* ---------- método (base Marcando) ---------- */
@@ -188,7 +188,13 @@ function renderPortal(c){
   <div class="top-dark"><div class="wrap">
     <div class="bar-top">
       <div class="mark"><b>Edson Mota</b><span>Portal do cliente</span></div>
-      <div style="display:flex;gap:8px">${asAdmin?`<button class="btn light sm" id="back" type="button">Voltar ao painel</button>`:`<button class="btn light sm ib" id="pw" type="button" aria-label="Trocar senha"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/></svg><span>Trocar senha</span></button><button class="btn light sm ib" id="out" type="button" aria-label="Sair"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg><span>Sair</span></button>`}</div>
+      <div style="display:flex;gap:8px">${asAdmin?`<button class="btn light sm" id="back" type="button">Voltar ao painel</button>`:`<div class="acct">
+        <button class="acct-btn" id="acct" type="button" aria-haspopup="menu" aria-expanded="false"><span class="av">${esc((c.contato||"?").trim().charAt(0).toUpperCase())}</span><span class="acct-name">${esc(c.contato)}</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg></button>
+        <div class="acct-menu" id="acctm" role="menu" hidden>
+          <div class="acct-who"><b>${esc(c.contato)}</b><span>${esc(c.marca)}</span></div>
+          <button type="button" role="menuitem" id="pw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Trocar senha</button>
+          <button type="button" role="menuitem" id="out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg>Sair</button>
+        </div></div>`}</div>
     </div>
     <div class="hero">
       <div>
@@ -196,7 +202,7 @@ function renderPortal(c){
         <h1>${esc(c.titulo)}</h1>
         <p class="desc">${esc(c.descricao)}</p>
       </div>
-      <div class="pbox">
+      <div class="pbox" role="group" aria-label="Progresso do projeto">
         <div class="lbl">Progresso do projeto</div>
         <div class="pct num"><span id="pctn">${reduce?pct:0}</span><small>%</small></div>
         <div class="segs" role="progressbar" aria-label="Progresso do projeto" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
@@ -247,7 +253,12 @@ function renderPortal(c){
   requestAnimationFrame(()=>requestAnimationFrame(()=>app.querySelectorAll("[data-w]").forEach(el=>el.style.width=el.dataset.w+"%")));
 
   if($("out"))$("out").onclick=logout;
-  if($("pw"))$("pw").onclick=changePassword;
+  if($("pw"))$("pw").onclick=()=>{closeAcct();changePassword()};
+  const ab=$("acct"),am=$("acctm");
+  function closeAcct(){if(am){am.hidden=true;ab.setAttribute("aria-expanded","false")}}
+  if(ab){ab.onclick=e=>{e.stopPropagation();const open=am.hidden;am.hidden=!open;ab.setAttribute("aria-expanded",String(open));if(open)am.querySelector("button").focus()};
+    document.addEventListener("click",e=>{if(!e.target.closest(".acct"))closeAcct()});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeAcct()})}
   if($("back"))$("back").onclick=()=>{asAdmin=false;view="admin";render();window.scrollTo(0,0)};
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>$(b.dataset.go).scrollIntoView({behavior:reduce?"auto":"smooth"}));
   bindCal(c);
@@ -276,7 +287,7 @@ function railHTML(c,fases){
       const pos=(i===0?" first":"")+(i===N-1?" last":"");
       const n=String(i+1).padStart(2,"0");
       const check=s.status==="concluida"?`<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#FEF7EA" stroke-width="2.2"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg>`:"";
-      if(s.status==="andamento"){const p=spct(s),left=Math.max(0,diff(today,parse(s.fim)));
+      if(s.status==="andamento"){const p=spct(s),dleft=diff(today,parse(s.fim));
         out+=`<div class="rs andamento${pos}"><div class="node"><i></i></div><div class="rs-body">
           <article class="current">
             <div>
@@ -287,7 +298,7 @@ function railHTML(c,fases){
             </div>
             <div class="side">
               <div class="box"><small>Entrega desta etapa</small><b>${esc(s.entregavel)}</b>
-                <div class="count num"><strong>${left}</strong><span>${left===1?"dia":"dias"} para ${fmt(s.fim)}</span></div>
+                <div class="count num">${dleft>1?`<strong>${dleft}</strong><span>dias para ${fmt(s.fim)}</span>`:dleft===1?`<strong>1</strong><span>dia para ${fmt(s.fim)}</span>`:dleft===0?`<strong class="t">Hoje</strong><span>${fmt(s.fim)}</span>`:`<strong class="t">Nova data em breve</strong>`}</div>
                 <button class="cal-add" type="button" data-ics="${i}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Adicionar ao calendário</button></div>
               ${s.acao?`<div class="box you"><small>Sua parte nesta etapa</small><b>${esc(s.acao)}</b></div>`:""}
             </div>

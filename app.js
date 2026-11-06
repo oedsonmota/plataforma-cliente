@@ -34,8 +34,15 @@ const METODO=[
 
 /* ---------- conversão banco <-> tela ---------- */
 const stepFromDb=s=>({id:s.id,nome:s.name,fase:s.phase,desc:s.description,entregavel:s.deliverable,acao:s.client_action,inicio:String(s.start_date).slice(0,10),fim:String(s.end_date).slice(0,10),status:s.status,link:s.file_url||"",position:s.position});
-const projFromDb=p=>({id:p.id,contato:p.contact_name,marca:p.brand_name,titulo:p.title,descricao:p.description,whats:p.whatsapp||"",email:p.client_email||"",hasAccess:!!p.client_user_id,updated:p.updated_at,
-  steps:(p.steps||[]).slice().sort((a,b)=>(a.position||0)-(b.position||0)).map(stepFromDb)});
+const finalFromDb=f=>({id:f.id,nome:f.name,desc:f.description,formato:f.format,link:f.file_url||"",position:f.position||0});
+const projFromDb=p=>{const steps=(p.steps||[]).slice().sort((a,b)=>(a.position||0)-(b.position||0)).map(stepFromDb);
+  return {id:p.id,contato:p.contact_name,marca:p.brand_name,titulo:p.title,descricao:p.description,whats:p.whatsapp||"",email:p.client_email||"",hasAccess:!!p.client_user_id,updated:p.updated_at,
+  photo:p.photo_url||"",openFlag:!!p.testimonial_open,
+  depOpen:p.testimonial_open===true||(steps.length>0&&steps.every(x=>x.status==="concluida")),
+  steps,finals:(p.final_items||[]).slice().sort((a,b)=>(a.position||0)-(b.position||0)).map(finalFromDb),
+  deps:(p.testimonials||[]).slice().sort((a,b)=>a.created_at<b.created_at?1:-1)}};
+const FCOL={nome:"name",desc:"description",formato:"format",link:"file_url"};
+const FINAIS=[["Guia de marca","O manual com todas as regras de uso da identidade visual e verbal.","PDF"],["Logotipos","Todas as versões do logo, para fundo claro e escuro.","PNG, SVG e PDF"],["Cores e tipografia","Os códigos das cores e as fontes da marca, prontos para usar.","PDF e arquivos de fonte"],["Grafismos e elementos visuais","Padrões, ícones e elementos de apoio da identidade.","PNG e SVG"],["Plataforma de marca","Posicionamento, promessa, personalidade e tom de voz num só documento.","PDF"],["Aplicações da marca","A marca aplicada em peças reais, para servir de referência.","PNG e PDF"]];
 const PCOL={contato:"contact_name",marca:"brand_name",titulo:"title",descricao:"description",whats:"whatsapp"};
 const SCOL={nome:"name",fase:"phase",desc:"description",entregavel:"deliverable",acao:"client_action",inicio:"start_date",fim:"end_date",status:"status",link:"file_url"};
 
@@ -101,7 +108,7 @@ async function afterLoginInner(){
   calMonth=null;render();window.scrollTo(0,0);
 }
 async function loadProjects(){
-  const {data,error}=await sb.from("projects").select("*, steps(*)").order("created_at",{ascending:false});
+  const {data,error}=await sb.from("projects").select("*, steps(*), final_items(*), testimonials(*)").order("created_at",{ascending:false});
   if(error){toast("Não consegui carregar os clientes: "+error.message,true);projects=[];return}
   projects=data.map(projFromDb);
   if(!projects.find(p=>p.id===sel))sel=projects[0]?projects[0].id:null;
@@ -189,7 +196,7 @@ function renderPortal(c){
     <div class="bar-top">
       <div class="mark"><b>Edson Mota</b><span>Portal do cliente</span></div>
       <div style="display:flex;gap:8px">${asAdmin?`<button class="btn light sm" id="back" type="button">Voltar ao painel</button>`:`<div class="acct">
-        <button class="acct-btn" id="acct" type="button" aria-haspopup="menu" aria-expanded="false"><span class="av">${esc((c.contato||"?").trim().charAt(0).toUpperCase())}</span><span class="acct-name">${esc(c.contato)}</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg></button>
+        <button class="acct-btn" id="acct" type="button" aria-haspopup="menu" aria-expanded="false"><span class="av">${c.photo?`<img src="${esc(c.photo)}" alt="">`:esc((c.contato||"?").trim().charAt(0).toUpperCase())}</span><span class="acct-name">${esc(c.contato)}</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg></button>
         <div class="acct-menu" id="acctm" role="menu" hidden>
           <div class="acct-who"><b>${esc(c.contato)}</b><span>${esc(c.marca)}</span></div>
           <button type="button" role="menuitem" id="pw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Trocar senha</button>
@@ -198,7 +205,7 @@ function renderPortal(c){
     </div>
     <div class="hero">
       <div>
-        <div class="hello">Boas-vindas, ${esc(c.contato)}.</div>
+        <div class="hero-id">${c.photo?`<img class="cphoto" src="${esc(c.photo)}" alt="Foto de ${esc(c.contato)}">`:""}<div class="hello">Boas-vindas, ${esc(c.contato)}.</div></div>
         <h1>${esc(c.titulo)}</h1>
         <p class="desc">${esc(c.descricao)}</p>
       </div>
@@ -223,6 +230,7 @@ function renderPortal(c){
     <div class="tabs-wrap" id="tw"><nav class="tabs" aria-label="Seções do portal">
       <button type="button" data-go="etapas" aria-current="true">Etapas</button>
       <button type="button" data-go="cronograma">Cronograma</button>
+      <button type="button" data-go="entrega">Entrega<span class="hide-m"> final</span></button>
       <button type="button" data-go="arquivos">Arquivos</button>
     </nav>
     <div class="mini" aria-hidden="true"><b>${esc(c.titulo)}</b><span class="mbar"><i style="width:${pct}%"></i></span><span class="mp">${pct}%</span></div></div>
@@ -239,10 +247,14 @@ function renderPortal(c){
       <div class="panel" id="cal-panel">${calHTML(c)}</div>
     </section>
 
+    ${finalHTML(c)}
+
     <section class="block" id="arquivos" aria-labelledby="h3a">
       <div class="sec-head"><div><h2 id="h3a">Arquivos</h2><p>Tudo o que já foi entregue, num lugar só.</p></div></div>
       <div class="files">${c.steps.map(fileHTML).join("")}</div>
     </section>
+
+    ${depHTML(c)}
 
     <div class="contact"><div><h3>Ficou alguma dúvida sobre o projeto?</h3><p>Me chama direto. Respondo em até um dia útil.</p></div>${c.whats?`<a class="btn orange" href="https://wa.me/${esc(c.whats.replace(/\D/g,""))}" target="_blank" rel="noopener">Falar com o Edson</a>`:""}</div>
     <footer><span>© Edson Mota, estratégia de marca e direção criativa</span><span class="num">Atualizado ${ago(upd)}</span></footer>
@@ -264,11 +276,103 @@ function renderPortal(c){
   bindCal(c);
   if(window.__mq)window.__mq.onchange=null;
   window.__mq=window.matchMedia("(max-width:640px)");window.__mq.onchange=()=>{const cp=$("cal-panel");if(cp){cp.innerHTML=calHTML(c);bindCal(c)}};
+  bindDep(c);
   app.querySelectorAll("[data-ics]").forEach(b=>b.onclick=()=>icsFor(c,c.steps[+b.dataset.ics]));
-  const ids=["etapas","cronograma","arquivos"];
+  const ids=["etapas","cronograma","entrega","arquivos"];
   const tw=$("tw"),heroEnd=()=>app.querySelector(".top-dark").getBoundingClientRect().bottom;
   window.onscroll=()=>{tw.classList.toggle("stuck",heroEnd()<0);let act="etapas";ids.forEach(id=>{const el=$(id);if(el&&el.getBoundingClientRect().top<140)act=id});
     app.querySelectorAll("[data-go]").forEach(b=>b.setAttribute("aria-current",b.dataset.go===act))};
+}
+function finalHTML(c){
+  if(!c.finals||!c.finals.length)return"";
+  const ready=c.finals.filter(f=>/^https?:\/\//i.test(f.link)).length,sp=span(c),fim=sp?fmt(iso(sp.b)):"";
+  return `<section class="block" id="entrega" aria-labelledby="h4f"><div class="final">
+    <div class="final-head"><div><h2 id="h4f">Sua entrega final</h2><p>No fim do projeto, é isto que fica com você. Cada item libera aqui assim que estiver pronto.</p></div>
+      <div class="final-count num"><b>${ready}</b><span>de ${c.finals.length} itens prontos</span></div></div>
+    <div class="final-grid">${c.finals.map((f,i)=>{const ok=/^https?:\/\//i.test(f.link);
+      return `<article class="fi${ok?" ok":""}"><div class="fi-top"><span class="fi-n num">${String(i+1).padStart(2,"0")}</span>${f.formato?`<span class="fi-f">${esc(f.formato)}</span>`:""}</div>
+        <h3>${esc(f.nome)}</h3><p>${esc(f.desc)}</p>
+        <div class="fi-act">${ok?`<a class="btn orange sm" href="${esc(f.link)}" target="_blank" rel="noopener"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Baixar</a>`:`<span class="fi-lock"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Na entrega final${fim?", "+fim:""}</span>`}</div></article>`}).join("")}</div>
+  </div></section>`;
+}
+function depHTML(c){
+  if(!c.depOpen)return `<section class="block" id="depoimento"><div class="dep dep-locked"><div class="dep-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zM19 11a7 7 0 0 1-14 0M12 18v3"/></svg></div><div><h3>Seu depoimento</h3><p>Quando o projeto terminar, este espaço abre para você contar como foi, em vídeo, áudio ou texto.</p></div></div></section>`;
+  if(c.deps&&c.deps.length)return `<section class="block" id="depoimento"><div class="dep dep-done"><div class="dep-ic ok"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div><h3>Obrigado pelo depoimento, ${esc(c.contato)}.</h3><p>Recebi aqui. Ele ajuda outras marcas a entenderem como é trabalhar comigo.</p></div></div></section>`;
+  return `<section class="block" id="depoimento" aria-labelledby="h5d"><div class="dep dep-open">
+    <div class="dep-intro"><span class="dep-badge">Projeto concluído</span><h2 id="h5d">Conta como foi?</h2>
+      <p>Seu depoimento ajuda outras marcas a entenderem como é esse processo. Pode ser curtinho, do seu jeito.</p>
+      <ul class="dep-q"><li>Como estava a sua marca antes do projeto?</li><li>O que mudou depois?</li><li>Para quem você indicaria esse trabalho?</li></ul></div>
+    <div class="dep-box">
+      <div class="dep-opts" role="tablist" aria-label="Formato do depoimento">
+        <button type="button" role="tab" data-dep="video" aria-selected="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></svg>Vídeo</button>
+        <button type="button" role="tab" data-dep="audio" aria-selected="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zM19 11a7 7 0 0 1-14 0M12 18v3"/></svg>Áudio</button>
+        <button type="button" role="tab" data-dep="texto" aria-selected="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Texto</button>
+      </div>
+      <div class="dep-panel" id="depPanel"></div>
+    </div></div></section>`;
+}
+let depRec=null;
+function bindDep(c){
+  const panel=$("depPanel");if(!panel)return;
+  const preview=asAdmin;
+  const sendBtn=(id,label)=>`<button class="btn orange" type="button" id="${id}"${preview?" disabled":""}>${label}</button>${preview?`<p class="dep-note">Visualização do admin: o envio fica só com o cliente.</p>`:""}`;
+  const show=kind=>{
+    app.querySelectorAll("[data-dep]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.dep===kind)));
+    if(depRec){try{depRec.stop()}catch(e){}depRec=null}
+    if(kind==="video"){
+      panel.innerHTML=`<p class="dep-tip">Grave com o celular <b>na vertical</b>, em até 1 minuto. Fale seu nome, sua marca e como foi o processo.</p>
+        <label class="dep-pick"><input type="file" id="vf" accept="video/*" capture="user" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></svg><span>Gravar ou escolher vídeo</span></label>
+        <div id="vprev"></div>`;
+      $("vf").onchange=()=>{const f=$("vf").files[0];if(!f)return;
+        if(f.size>50*1024*1024){toast("O vídeo passou de 50 MB. Tente gravar um pouco mais curto.",true);return}
+        $("vprev").innerHTML=`<video class="dep-video" src="${URL.createObjectURL(f)}" controls playsinline></video>${sendBtn("vsend","Enviar vídeo")}`;
+        if($("vsend"))$("vsend").onclick=()=>sendDep(c,"video",f,"",$("vsend"))};
+    }else if(kind==="audio"){
+      const can=!!(navigator.mediaDevices&&window.MediaRecorder);
+      panel.innerHTML=`<p class="dep-tip">Aperte para gravar e fale com calma. Quando terminar, aperte de novo.</p>
+        ${can?`<div class="rec"><button type="button" class="rec-btn" id="recb" aria-label="Começar a gravar"><span></span></button><div><b id="rect" class="num">0:00</b><small id="recs">Pronto para gravar</small></div></div>`:""}
+        <label class="dep-pick small"><input type="file" id="af" accept="audio/*" hidden><span>${can?"Ou envie um áudio que você já gravou":"Enviar um áudio do celular"}</span></label>
+        <div id="aprev"></div>`;
+      const showAudio=(blob,name)=>{$("aprev").innerHTML=`<audio class="dep-audio" src="${URL.createObjectURL(blob)}" controls></audio>${sendBtn("asend","Enviar áudio")}`;
+        if($("asend"))$("asend").onclick=()=>sendDep(c,"audio",blob,"",$("asend"),name)};
+      $("af").onchange=()=>{const f=$("af").files[0];if(f){if(f.size>50*1024*1024)return toast("O áudio passou de 50 MB.",true);showAudio(f,f.name)}};
+      if(can)$("recb").onclick=async()=>{
+        if(depRec&&depRec.state==="recording"){depRec.stop();return}
+        try{const st=await navigator.mediaDevices.getUserMedia({audio:true});
+          const mime=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
+          const chunks=[];depRec=new MediaRecorder(st,mime?{mimeType:mime}:undefined);
+          const t0=Date.now();const tick=setInterval(()=>{const s2=Math.floor((Date.now()-t0)/1000);$("rect").textContent=Math.floor(s2/60)+":"+String(s2%60).padStart(2,"0");if(s2>=180&&depRec)depRec.stop()},250);
+          depRec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+          depRec.onstop=()=>{clearInterval(tick);st.getTracks().forEach(t=>t.stop());$("recb").classList.remove("on");$("recs").textContent="Gravado. Ouça antes de enviar.";
+            const type=(depRec&&depRec.mimeType)||mime||"audio/webm";const blob=new Blob(chunks,{type:type.split(";")[0]});depRec=null;showAudio(blob,"")};
+          depRec.start();$("recb").classList.add("on");$("recs").textContent="Gravando. Aperte para parar.";
+        }catch(e){toast("Não consegui acessar o microfone. Libere o acesso no navegador ou envie um arquivo de áudio.",true)}
+      };
+    }else{
+      panel.innerHTML=`<p class="dep-tip">Escreva do seu jeito. Pode ser curtinho.</p>
+        <div class="field"><label for="dt">Seu depoimento</label><textarea id="dt" rows="6" placeholder="Antes do projeto, a minha marca..."></textarea></div>${sendBtn("tsend","Enviar depoimento")}`;
+      if($("tsend"))$("tsend").onclick=()=>{const t=$("dt").value.trim();if(t.length<10)return toast("Escreva um pouco mais antes de enviar.",true);sendDep(c,"texto",null,t,$("tsend"))};
+    }
+  };
+  app.querySelectorAll("[data-dep]").forEach(b=>b.onclick=()=>show(b.dataset.dep));
+  show("video");
+}
+async function sendDep(c,kind,file,body,btn,name){
+  if(asAdmin||!session)return;
+  btn.disabled=true;const old=btn.textContent;btn.textContent="Enviando...";
+  try{
+    let path="";
+    if(file){const type=(file.type||"").split(";")[0]||(kind==="video"?"video/mp4":"audio/webm");
+      const ext=((name||"").split(".").pop()||"").toLowerCase()||({"video/quicktime":"mov","video/mp4":"mp4","video/webm":"webm","audio/mp4":"m4a","audio/webm":"webm","audio/mpeg":"mp3","audio/ogg":"ogg","audio/wav":"wav"}[type]||"bin");
+      path=session.user.id+"/"+Date.now()+"-"+kind+"."+ext;
+      const {error:upErr}=await sb.storage.from("depoimentos").upload(path,file,{contentType:type,upsert:false});
+      if(upErr)throw upErr}
+    const {error}=await sb.from("testimonials").insert({project_id:c.id,client_user_id:session.user.id,kind,body:body||"",file_path:path});
+    if(error)throw error;
+    c.deps=[{kind,created_at:new Date().toISOString()}];
+    const sec=$("depoimento");if(sec)sec.outerHTML=depHTML(c);
+    toast("Depoimento enviado. Obrigado!");
+  }catch(e){btn.disabled=false;btn.textContent=old;toast("Não deu para enviar: "+(e.message||e),true)}
 }
 function bindCal(c){
   app.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{calMode=b.dataset.mode;
@@ -421,6 +525,26 @@ function editor(c){
       </div></div>`).join("")}
     <button class="btn sm" type="button" id="adds" style="margin-top:14px">Adicionar etapa</button>
   </div>
+  <div class="card"><h3>Entrega final</h3><p class="hint">O kit que fica com o cliente no fim do projeto. Ele vê a lista desde o início, e cada item libera quando você colar o link.</p>
+    <div class="fl">${c.finals.map((f,i)=>`<div class="fl-row">
+      <span class="n num">${String(i+1).padStart(2,"0")}</span>
+      <div class="field"><label for="fn${i}">Item</label><input id="fn${i}" data-fi="${i}" data-fs="nome" value="${esc(f.nome)}"></div>
+      <div class="field"><label for="ff${i}">Formato</label><input id="ff${i}" data-fi="${i}" data-fs="formato" value="${esc(f.formato)}"></div>
+      <div class="field"><label for="fl${i}">Link para baixar${/^https?:/i.test(f.link)?` <em class="ok-dot">liberado</em>`:""}</label><input id="fl${i}" data-fi="${i}" data-fs="link" placeholder="https://" value="${esc(f.link)}"></div>
+      <div class="field fl-wide"><label for="fd${i}">Descrição que o cliente vê</label><input id="fd${i}" data-fi="${i}" data-fs="desc" value="${esc(f.desc)}"></div>
+      <button class="danger fl-del" type="button" data-fdel="${i}">Remover</button></div>`).join("")}</div>
+    <button class="btn sm" type="button" id="addf" style="margin-top:14px">Adicionar item</button>
+  </div>
+  <div class="card"><h3>Foto do cliente</h3><p class="hint">Aparece em destaque no topo do portal dele.</p>
+    <div class="ph-row"><div class="ph-prev">${c.photo?`<img src="${esc(c.photo)}" alt="">`:`<span>${esc((c.contato||"?").charAt(0).toUpperCase())}</span>`}</div>
+      <div class="ph-act"><label class="btn ink sm"><input type="file" id="phf" accept="image/*" hidden>${c.photo?"Trocar foto":"Enviar foto"}</label>${c.photo?`<button class="danger" type="button" id="phdel">Remover foto</button>`:""}<small>JPG ou PNG. A foto é ajustada automaticamente.</small></div></div>
+  </div>
+  <div class="card"><h3>Depoimento</h3><p class="hint">O espaço de depoimento abre sozinho quando todas as etapas estão concluídas. Você também pode liberar antes.</p>
+    <label class="sw"><input type="checkbox" id="depopen"${c.openFlag?" checked":""}><span></span>Liberar depoimento agora</label>
+    <div class="dl" id="deplist">${c.deps.length?c.deps.map((d,i)=>`<div class="dl-row"><div><b>${{video:"Vídeo",audio:"Áudio",texto:"Texto"}[d.kind]||d.kind}</b><small>${new Date(d.created_at).toLocaleDateString("pt-BR")}</small></div>
+      ${d.kind==="texto"?`<p class="dl-text">${esc(d.body)}</p>`:`<div class="dl-media" data-dmedia="${i}"><button class="btn sm" type="button" data-dplay="${i}">Ver ${d.kind==="video"?"vídeo":"áudio"}</button></div>`}
+      <button class="danger" type="button" data-ddel="${i}">Apagar</button></div>`).join(""):`<p class="dl-empty">Nenhum depoimento recebido ainda.</p>`}</div>
+  </div>
   <div class="card"><h3>Dados do projeto</h3><p class="hint">O que aparece no topo do portal do cliente.</p>
     <div class="grid2">
       <div class="field"><label for="k1">Nome do contato</label><input id="k1" data-k="contato" value="${esc(c.contato)}"></div>
@@ -478,6 +602,7 @@ function bindEditor(c){
     const row={project_id:c.id,position:c.steps.length,name:"Nova etapa",phase:"Criação",start_date:iso(a),end_date:iso(add(a,4)),deliverable:"Entregável",description:"",client_action:"",status:"afazer",file_url:""};
     const {data,error}=await sb.from("steps").insert(row).select().single();
     if(error)return toast("Não adicionou: "+error.message,true);c.steps.push(stepFromDb(data));openRow=c.steps.length-1;renderAdmin()};
+  bindExtras(c);
   $("preview").onclick=()=>{asAdmin=true;calMonth=null;view="portal";render();window.scrollTo(0,0)};
   [$("mkacc"),$("mkacc2")].forEach(b=>{if(b)b.onclick=()=>createAccess(c)});
   if($("resetpw"))$("resetpw").onclick=async()=>{const pass=genPass();
@@ -487,6 +612,35 @@ function bindEditor(c){
     const r=await callAdmin({action:"remove",project_id:c.id});if(!r)return;
     projects=projects.filter(p=>p.id!==c.id);sel=projects[0]?projects[0].id:null;renderAdmin();toast("Cliente excluído")};
 }
+function bindExtras(c){
+  app.querySelectorAll("[data-fi]").forEach(el=>el.oninput=()=>{const f=c.finals[+el.dataset.fi];f[el.dataset.fs]=el.value;queueSave("final_items",f.id,FCOL[el.dataset.fs],el.value)});
+  app.querySelectorAll("[data-fdel]").forEach(b=>b.onclick=async()=>{
+    if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Clique de novo";return}
+    const f=c.finals[+b.dataset.fdel];const {error}=await sb.from("final_items").delete().eq("id",f.id);
+    if(error)return toast("Não removeu: "+error.message,true);c.finals.splice(+b.dataset.fdel,1);renderAdmin()});
+  $("addf").onclick=async()=>{const {data,error}=await sb.from("final_items").insert({project_id:c.id,position:c.finals.length,name:"Novo item",description:"",format:""}).select().single();
+    if(error)return toast("Não adicionou: "+error.message,true);c.finals.push(finalFromDb(data));renderAdmin()};
+  $("phf").onchange=async()=>{const f=$("phf").files[0];if(!f)return;
+    try{toast("Enviando foto...");const blob=await squareJpeg(f,900);const path=c.id+"/"+Date.now()+".jpg";
+      const {error}=await sb.storage.from("fotos").upload(path,blob,{contentType:"image/jpeg",upsert:false});if(error)throw error;
+      const url=sb.storage.from("fotos").getPublicUrl(path).data.publicUrl;
+      if(await saveNow("projects",c.id,{photo_url:url})){c.photo=url;renderAdmin();toast("Foto atualizada")}
+    }catch(e){toast("Não deu para enviar a foto: "+(e.message||e),true)}};
+  if($("phdel"))$("phdel").onclick=async()=>{if(await saveNow("projects",c.id,{photo_url:""})){c.photo="";renderAdmin()}};
+  $("depopen").onchange=async e=>{const v=e.target.checked;if(await saveNow("projects",c.id,{testimonial_open:v})){c.openFlag=v;c.depOpen=v||c.steps.every(x=>x.status==="concluida")}else e.target.checked=!v};
+  app.querySelectorAll("[data-dplay]").forEach(b=>b.onclick=async()=>{const d=c.deps[+b.dataset.dplay];
+    const {data,error}=await sb.storage.from("depoimentos").createSignedUrl(d.file_path,3600);if(error)return toast("Não abriu: "+error.message,true);
+    const box=app.querySelector(`[data-dmedia="${b.dataset.dplay}"]`);
+    box.innerHTML=d.kind==="video"?`<video class="dl-video" src="${data.signedUrl}" controls playsinline></video><a class="btn sm" href="${data.signedUrl}" target="_blank" rel="noopener">Baixar</a>`:`<audio src="${data.signedUrl}" controls></audio><a class="btn sm" href="${data.signedUrl}" target="_blank" rel="noopener">Baixar</a>`});
+  app.querySelectorAll("[data-ddel]").forEach(b=>b.onclick=async()=>{
+    if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Clique de novo para apagar";return}
+    const d=c.deps[+b.dataset.ddel];if(d.file_path)await sb.storage.from("depoimentos").remove([d.file_path]);
+    const {error}=await sb.from("testimonials").delete().eq("id",d.id);if(error)return toast("Não apagou: "+error.message,true);
+    c.deps.splice(+b.dataset.ddel,1);renderAdmin()});
+}
+function squareJpeg(file,size){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const s2=Math.min(img.width,img.height),cv=document.createElement("canvas");
+  const out=Math.min(size,s2);cv.width=cv.height=out;cv.getContext("2d").drawImage(img,(img.width-s2)/2,(img.height-s2)/2,s2,s2,0,0,out,out);
+  cv.toBlob(b=>b?res(b):rej(new Error("imagem inválida")),"image/jpeg",.86);URL.revokeObjectURL(img.src)};img.onerror=()=>rej(new Error("não consegui ler a imagem"));img.src=URL.createObjectURL(file)})}
 function askShift(c,idx,delta){
   const n=c.steps.length-idx-1,abs=Math.abs(delta),dias=abs===1?"1 dia":abs+" dias";
   modal(delta>0?"A entrega atrasou "+dias:"A entrega adiantou "+dias,`<p>Quer mover as ${n} etapas seguintes junto, para o cronograma continuar fazendo sentido para o cliente?</p>
@@ -535,6 +689,7 @@ function newClient(){
     const rows=METODO.map((m,i)=>({project_id:p.id,position:i,name:m[0],phase:m[1],start_date:iso(add(start,m[2])),end_date:iso(add(start,m[3])),deliverable:m[4],description:m[5],client_action:m[6],status:i===0?"andamento":"afazer",file_url:""}));
     const {error:e2}=await sb.from("steps").insert(rows);
     if(e2)toast("Projeto criado, mas as etapas falharam: "+e2.message,true);
+    await sb.from("final_items").insert(FINAIS.map((f,i)=>({project_id:p.id,position:i,name:f[0],description:f[1],format:f[2]})));
     await loadProjects();sel=p.id;openRow=-1;closeModal();renderAdmin();
     const c=projects.find(x=>x.id===p.id);if(c)createAccess(c)}});
 }

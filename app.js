@@ -22,12 +22,12 @@ const $=id=>document.getElementById(id);
 
 /* ---------- etapas do projeto (6 etapas, 4 a 6 semanas) ---------- */
 const METODO=[
- ["Contrato e briefing","Estratégia",0,2,"Briefing respondido","Contrato assinado e briefing sobre a empresa, o público, a concorrência e as suas referências.","Assinar o contrato e responder o briefing."],
- ["Workshop","Estratégia",3,4,"Resumo do workshop","Sessão ao vivo com quem decide sobre a marca, para aprofundar o que o briefing levantou.","Participar do workshop com quem decide sobre a marca."],
- ["Direção estratégica e visual","Estratégia",7,11,"Apresentação da direção estratégica e visual","Análise de concorrentes, plataforma de marca, conceito e a direção visual da marca.","Assistir à apresentação e validar a direção estratégica e visual."],
- ["Desenvolvimento da identidade","Criação",14,25,"Caminhos da identidade","Os caminhos da identidade: logo, cores, tipografia e primeiras aplicações.","Escolher o caminho e mandar o seu retorno em até 3 dias úteis."],
- ["Apresentação final","Criação",28,32,"Apresentação final da marca","A identidade escolhida aplicada nos pontos de contato reais da sua empresa.","Assistir à apresentação final e apontar os ajustes."],
- ["Finalização e entrega","Criação",35,39,"Guia de marca e arquivos finais","Ajustes finais, guia de marca e todos os arquivos organizados.","Baixar os arquivos e repassar o guia para quem vai aplicar a marca."]
+ ["Contrato e briefing","Estratégia",0,2,"Contrato assinado e briefing respondido","Depois da nossa conversa e do contrato assinado, você responde a um briefing sobre a empresa, o público, a concorrência e as suas referências.","Assinar o contrato e responder o briefing."],
+ ["Diagnóstico","Estratégia",3,4,"Resumo do diagnóstico","Uma sessão ao vivo para ir mais a fundo em tudo o que apareceu no briefing e reunir o que ainda falta saber sobre o negócio.","Participar do diagnóstico com quem decide sobre a marca."],
+ ["Direção estratégica e visual","Estratégia",7,11,"Apresentação da direção estratégica e visual","O posicionamento da marca, a partir do diagnóstico e do mercado, e os caminhos de look and feel em moodboard, para definir para onde a marca vai.","Assistir à apresentação e aprovar a direção."],
+ ["Desenvolvimento da identidade","Criação",14,25,"Keyvisual e identidade verbal para validação","A identidade visual e verbal da marca: o keyvisual e a forma como a marca fala.","Validar o keyvisual e a identidade verbal em até 3 dias úteis."],
+ ["Apresentação final","Criação",28,32,"Apresentação final da marca","A identidade desdobrada nas aplicações e nos pontos de contato da sua empresa.","Assistir à apresentação final e apontar os ajustes."],
+ ["Finalização e entrega","Criação",35,39,"Guia de marca e arquivos finais","Ajustes finais, guia de marca e todos os arquivos organizados e prontos para uso.","Baixar os arquivos e repassar o guia para quem vai aplicar a marca."]
 ];
 
 /* ---------- conversão banco <-> tela ---------- */

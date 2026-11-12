@@ -20,16 +20,14 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 function until(s){const n=diff(today,parse(s));if(n===0)return"hoje";if(n===1)return"amanhã";if(n<0)return"nova data em breve";return"em "+n+" dias"}
 const $=id=>document.getElementById(id);
 
-/* ---------- método (base Marcando) ---------- */
+/* ---------- etapas do projeto (6 etapas, 4 a 6 semanas) ---------- */
 const METODO=[
- ["Entrevistas","Estratégia",0,4,"Gravações e resumo das entrevistas","Conversas individuais com você e com quem faz a marca acontecer, para entender o negócio por dentro.","Reservar 1 hora para a sua entrevista e indicar quem mais da equipe deve ser ouvido."],
- ["Workshop","Estratégia",8,9,"Mural do workshop","Encontro guiado para alinhar visão, público e a ambição da marca para os próximos anos.","Participar do workshop com quem decide sobre a marca. São cerca de 3 horas."],
- ["Pesquisa","Estratégia",9,18,"Relatório de pesquisa","Estudo de mercado, concorrentes e público, com dados e referências que sustentam as decisões.","Enviar o que você já tem: apresentações, números de venda e referências de que gosta."],
- ["Diagnóstico","Estratégia",21,25,"Apresentação do diagnóstico","Leitura de onde a marca está hoje, o que ela tem de forte e o que está travando o crescimento.","Assistir à apresentação do diagnóstico e trazer as suas dúvidas."],
- ["Estratégia","Estratégia",28,39,"Plataforma de marca","Plataforma de marca com posicionamento, promessa, personalidade e direção criativa.","Reservar 1 hora no último dia da etapa para a apresentação da plataforma de marca."],
- ["Keyword","Criação",42,46,"Conceito criativo","A palavra-conceito que resume a marca e vai guiar toda a criação visual e verbal.","Aprovar a palavra-conceito antes de seguirmos para a criação visual."],
- ["Keyvisual","Criação",49,60,"Apresentação do keyvisual","Primeira expressão visual da marca: logo, cores, tipografia e grafismos aplicados.","Mandar o seu retorno sobre o keyvisual em até 3 dias úteis depois da apresentação."],
- ["Guia de Marca","Criação",63,74,"Guia de marca e arquivos finais","Manual com as regras da identidade visual e verbal, pronto para a sua equipe usar.","Receber os arquivos finais e repassar o guia para quem vai aplicar a marca."]
+ ["Contrato e briefing","Estratégia",0,2,"Briefing respondido","Contrato assinado e briefing sobre a empresa, o público, a concorrência e as suas referências.","Assinar o contrato e responder o briefing."],
+ ["Workshop","Estratégia",3,4,"Resumo do workshop","Sessão ao vivo com quem decide sobre a marca, para aprofundar o que o briefing levantou.","Participar do workshop com quem decide sobre a marca."],
+ ["Estratégia e look and feel","Estratégia",7,11,"Apresentação da estratégia e do look and feel","Análise de concorrentes, plataforma de marca, conceito e a direção visual da marca.","Assistir à apresentação e validar a estratégia e o look and feel."],
+ ["Desenvolvimento da identidade","Criação",14,25,"Caminhos da identidade","Os caminhos da identidade: logo, cores, tipografia e primeiras aplicações.","Escolher o caminho e mandar o seu retorno em até 3 dias úteis."],
+ ["Apresentação final","Criação",28,32,"Apresentação final da marca","A identidade escolhida aplicada nos pontos de contato reais da sua empresa.","Assistir à apresentação final e apontar os ajustes."],
+ ["Finalização e entrega","Criação",35,39,"Guia de marca e arquivos finais","Ajustes finais, guia de marca e todos os arquivos organizados.","Baixar os arquivos e repassar o guia para quem vai aplicar a marca."]
 ];
 
 /* ---------- conversão banco <-> tela ---------- */
@@ -492,7 +490,7 @@ function renderAdmin(){
       ${projects.map(x=>{const cu=current(x);return`<button class="ci" type="button" data-sel="${esc(x.id)}" aria-current="${x.id===sel}">${ring(progress(x))}<span><b>${esc(x.marca||"Sem nome")}</b><small>${!x.hasAccess?"Sem acesso criado":(cu?esc(cu.nome)+" em andamento":"Concluído")}</small></span></button>`}).join("")}
       <button class="btn ink sm" type="button" id="newc" style="margin-top:8px">Novo cliente</button>
     </aside>
-    <main class="editor">${c?editor(c):`<div class="card"><h3>Nenhum cliente ainda</h3><p class="hint">Clique em "Novo cliente" para cadastrar o primeiro projeto. As 8 etapas do método entram automaticamente.</p></div>`}</main>
+    <main class="editor">${c?editor(c):`<div class="card"><h3>Nenhum cliente ainda</h3><p class="hint">Clique em "Novo cliente" para cadastrar o primeiro projeto. As 6 etapas do projeto entram automaticamente.</p></div>`}</main>
   </div>`;
   $("out").onclick=logout;
   app.querySelectorAll("[data-sel]").forEach(b=>b.onclick=()=>{sel=b.dataset.sel;openRow=-1;renderAdmin()});

@@ -24,7 +24,7 @@ const $=id=>document.getElementById(id);
 const METODO=[
  ["Contrato e briefing","Estratégia",0,2,"Briefing respondido","Contrato assinado e briefing sobre a empresa, o público, a concorrência e as suas referências.","Assinar o contrato e responder o briefing."],
  ["Workshop","Estratégia",3,4,"Resumo do workshop","Sessão ao vivo com quem decide sobre a marca, para aprofundar o que o briefing levantou.","Participar do workshop com quem decide sobre a marca."],
- ["Estratégia e look and feel","Estratégia",7,11,"Apresentação da estratégia e do look and feel","Análise de concorrentes, plataforma de marca, conceito e a direção visual da marca.","Assistir à apresentação e validar a estratégia e o look and feel."],
+ ["Direção estratégica e visual","Estratégia",7,11,"Apresentação da direção estratégica e visual","Análise de concorrentes, plataforma de marca, conceito e a direção visual da marca.","Assistir à apresentação e validar a direção estratégica e visual."],
  ["Desenvolvimento da identidade","Criação",14,25,"Caminhos da identidade","Os caminhos da identidade: logo, cores, tipografia e primeiras aplicações.","Escolher o caminho e mandar o seu retorno em até 3 dias úteis."],
  ["Apresentação final","Criação",28,32,"Apresentação final da marca","A identidade escolhida aplicada nos pontos de contato reais da sua empresa.","Assistir à apresentação final e apontar os ajustes."],
  ["Finalização e entrega","Criação",35,39,"Guia de marca e arquivos finais","Ajustes finais, guia de marca e todos os arquivos organizados.","Baixar os arquivos e repassar o guia para quem vai aplicar a marca."]
